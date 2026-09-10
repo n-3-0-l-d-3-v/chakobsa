@@ -13,7 +13,20 @@ repo commit-for-commit.
 
 ## Status
 
-**Phase 3 — QUEUED**
+**Phase 3 — ACTIVE.** See
+[docs/design/LANGUAGE.md](docs/design/LANGUAGE.md) for the surface
+language and full pipeline (lexer -> parser building typed SSA directly
+-> codegen -> mentat bytecode).
+
+**Ticket 001 (lexer) is done.** `crates/lexer`: a full token set for
+the v1 surface language, greedy two-character-operator matching,
+keyword-prefixed identifiers (`iffy`, `letter`) correctly lexing as
+identifiers rather than a truncated keyword match, and malformed input
+always a typed `LexError` — proven by a property test over completely
+arbitrary byte input (not just hand-picked bad cases) plus a
+render-then-relex round-trip property test. See
+[ADR-001](docs/design/decisions/ADR-001-lexer-design.md) for the
+fail-fast-vs-error-recovery and keyword-matching design choices.
 
 See [tickets/](tickets/) for the live phase-by-phase ticket board and
 [docs/design/](docs/design/) for constraints, invariants and architecture
@@ -35,7 +48,7 @@ Alternative intermediate representation design, and a compiler front-end that mu
 
 - [mentat](https://github.com/n-3-0-l-d-3-v/mentat) — THE MACHINE (COMPLETE)
 - [muaddib](https://github.com/n-3-0-l-d-3-v/muaddib) — THE KERNEL (QUEUED)
-- [sietch](https://github.com/n-3-0-l-d-3-v/sietch) — THE VAULT (ACTIVE)
+- [sietch](https://github.com/n-3-0-l-d-3-v/sietch) — THE VAULT (COMPLETE)
 - [choam](https://github.com/n-3-0-l-d-3-v/choam) — THE DATABASE (QUEUED)
 - [distrans](https://github.com/n-3-0-l-d-3-v/distrans) — THE WIRE (QUEUED)
 - [landsraad](https://github.com/n-3-0-l-d-3-v/landsraad) — THE COLONY (QUEUED)
