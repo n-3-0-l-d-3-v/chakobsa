@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/lexer",
+    "crates/ir",
 ]
 
 [workspace.package]
