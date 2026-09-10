@@ -28,6 +28,24 @@ render-then-relex round-trip property test. See
 [ADR-001](docs/design/decisions/ADR-001-lexer-design.md) for the
 fail-fast-vs-error-recovery and keyword-matching design choices.
 
+**Ticket 002 (typed SSA IR) is done.** `crates/ir`: typed values,
+instructions (`BinOp`/`UnOp`/`Call`/`Phi`), basic blocks, functions and
+modules, plus structural + type validation mirroring mentat's
+`Program::validate` — a `Phi`'s incoming set checked against its block's
+*actual* predecessors (computed on demand, never cached, since ticket
+003's parser builds blocks incrementally), a `Call` site checked against
+its callee's real signature at module scope, and every value use
+checked against a real definition. Also includes a from-scratch
+reference interpreter (CFG-walking, not tree-walking — there's no tree
+in this pipeline) that ticket 006's differential tests will compare
+codegen'd-and-VM-executed results against. 22 unit tests plus 2 property
+tests; one of the unit tests caught a real bug during development
+(function parameters weren't seeded into the definition set) before it
+could reach ticket 003. See
+[ADR-002](docs/design/decisions/ADR-002-typed-ssa-ir-design.md) for the
+on-demand-predecessors, no-dominance-check, and module-scope-call-
+validation design choices.
+
 See [tickets/](tickets/) for the live phase-by-phase ticket board and
 [docs/design/](docs/design/) for constraints, invariants and architecture
 decision records.
