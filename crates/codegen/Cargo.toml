@@ -1,0 +1,15 @@
+[package]
+name = "codegen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ir = { path = "../ir" }
+isa = { git = "https://github.com/n-3-0-l-d-3-v/mentat.git" }
+thiserror.workspace = true
+
+[dev-dependencies]
+parser = { path = "../parser" }
+vm = { git = "https://github.com/n-3-0-l-d-3-v/mentat.git" }
+proptest.workspace = true
