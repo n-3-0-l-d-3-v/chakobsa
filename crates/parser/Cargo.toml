@@ -1,0 +1,13 @@
+[package]
+name = "parser"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+lexer = { path = "../lexer" }
+ir = { path = "../ir" }
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
