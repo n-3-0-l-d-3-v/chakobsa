@@ -70,6 +70,30 @@ unreachable join block that failed validation — fixed and documented
 honestly rather than papered over. See
 [ADR-003](docs/design/decisions/ADR-003-parser-direct-to-ssa.md).
 
+**Ticket 004 (codegen to mentat) is done — the first real cross-repo
+integration in the ecosystem.** `crates/codegen` depends on mentat's
+`isa`/`vm` crates via a `git` dependency and lowers typed SSA to
+`mentat::Program`: greedy register allocation bounded by mentat's 32
+registers (spilling to memory once exceeded), a genuine software call
+stack so recursive calls can't clobber a caller's own still-needed
+values (mentat's own call stack tracks only return addresses, never
+registers), and parallel (not sequential) multi-value moves for call
+arguments and phi elimination so an argument swap like `sub(b, a)`
+can't clobber itself mid-move. Bridges three real architectural
+mismatches between a typed-SSA CFG and mentat's block-indexed,
+register-scarce, dependency-scheduled machine — see
+[ADR-004](docs/design/decisions/ADR-004-codegen-and-calling-convention.md)
+for all of them, plus four real bugs this ticket's own tests caught
+against the **real mentat VM** (not just the reference interpreter):
+mentat's bitwise `Not` opcode being mistaken for logical negation, the
+caller-saved-register hazard recursion exposed, and two independent
+liveness-analysis bugs (phi operands attributed to the wrong block;
+upward-exposed-use miscounted) — each fixed and covered by a regression
+test. 13 end-to-end tests run compiled output on the real VM, 9 unit
+tests cover liveness/regalloc directly, and a 200-case differential
+property test confirms compiled-and-VM-executed results always match
+the reference interpreter.
+
 See [tickets/](tickets/) for the live phase-by-phase ticket board and
 [docs/design/](docs/design/) for constraints, invariants and architecture
 decision records.
