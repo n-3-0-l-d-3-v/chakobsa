@@ -46,6 +46,30 @@ could reach ticket 003. See
 on-demand-predecessors, no-dominance-check, and module-scope-call-
 validation design choices.
 
+**Ticket 003 (the parser) is done — this is the ticket that actually
+proves the repo's whole premise.** `crates/parser` drives
+`ssa_builder`'s implementation of Braun, Buchwald, Hack, Leißa, Mallon
+& Zwinkau's (CC 2013) incremental SSA construction algorithm directly
+from a recursive-descent/precedence-climbing expression and statement
+parser — no `Expr`/`Stmt` AST node is ever built. Its driving loop
+(resolve a variable read against whatever reaches this point; insert
+and seal phis as a block's predecessors become known) turns out to
+genuinely *be* the parser's own control flow, not something bolted on
+top of it. Handles real programs end-to-end: straight-line arithmetic,
+`if`/`else` with and without an `else`, `while` loops (including
+nested), recursion, mutual recursion (via a two-pass signature scan
+that resolves forward references before any body is parsed), and
+short-circuit `and`/`or` compiled as real branches — proven to actually
+skip evaluating their right-hand side, not just to produce the right
+boolean. 13 representative end-to-end program tests, 17 typed-error
+tests, and 2 property tests (arbitrary byte input never panics the
+parser; arbitrary generated well-typed programs always produce IR that
+passes full `ir::validate_module`). Caught a real bug along the way — an
+`if`/`else` where both arms `return` could produce an empty,
+unreachable join block that failed validation — fixed and documented
+honestly rather than papered over. See
+[ADR-003](docs/design/decisions/ADR-003-parser-direct-to-ssa.md).
+
 See [tickets/](tickets/) for the live phase-by-phase ticket board and
 [docs/design/](docs/design/) for constraints, invariants and architecture
 decision records.
