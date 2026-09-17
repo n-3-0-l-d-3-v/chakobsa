@@ -13,7 +13,7 @@ repo commit-for-commit.
 
 ## Status
 
-**Phase 3 — ACTIVE.** See
+**Phase 3 — COMPLETE.** All 6 tickets closed. See
 [docs/design/LANGUAGE.md](docs/design/LANGUAGE.md) for the surface
 language and full pipeline (lexer -> parser building typed SSA directly
 -> codegen -> mentat bytecode).
@@ -106,6 +106,32 @@ instruction renderer, replacing the ad hoc `{:#?}` dumps every earlier
 ticket had been using. 7 integration tests run against the actual built
 binary, covering all three subcommands, recursion, a missing-`main`
 error, a parse error, and round-tripping `build` -> `run`.
+
+**Ticket 006 (differential testing and benchmarks) is done — this
+closes Phase 3 (THE LANGUAGE) in full.** The property-test generator now
+includes bounded `while` loops (terminating by construction — the loop
+counter and its increment are always generated as one unit), which
+immediately found a real, previously-shipped bug in `ir`'s reference
+interpreter (ticket 002), not in codegen: a `Phi` can legitimately
+reference *another `Phi` in the same block* (a value a nested loop
+passes through unchanged), and the interpreter resolved every
+instruction — `Phi`s included — strictly in textual order, so a later
+`Phi` could observe an earlier one's just-updated value instead of its
+correct pre-transition one. Codegen was already right here (its phi
+elimination already stages everything through scratch memory first).
+Fixed, with a dedicated regression test pinning the exact shape.
+Benchmarks measure what `docs/design/LANGUAGE.md` promised: compile
+time scales close to linearly for parsing but is **measurably
+quadratic** for codegen on single-block programs (root-caused to
+register allocation's O(block-size²) interference-graph construction —
+a real, honestly-reported limitation, not fixed here), and running
+compiled output on mentat's VM is **currently slower than this
+project's own reference interpreter**, by roughly one to two orders of
+magnitude across both a recursion-heavy and a loop-heavy program — a
+genuinely surprising, plainly reported result rather than the outcome
+one might have assumed going in. See
+[ADR-006](docs/design/decisions/ADR-006-differential-testing-and-benchmarks.md)
+for the full measured tables and root-causing.
 
 See [tickets/](tickets/) for the live phase-by-phase ticket board and
 [docs/design/](docs/design/) for constraints, invariants and architecture
