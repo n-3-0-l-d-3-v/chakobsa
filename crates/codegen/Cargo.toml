@@ -13,3 +13,12 @@ thiserror.workspace = true
 parser = { path = "../parser" }
 vm = { git = "https://github.com/n-3-0-l-d-3-v/mentat.git" }
 proptest.workspace = true
+criterion = "0.5"
+
+[[bench]]
+name = "compile_time"
+harness = false
+
+[[bench]]
+name = "runtime_vs_interpreter"
+harness = false
