@@ -108,20 +108,50 @@ fn call(
             .block(current)
             .expect("validated module: block id always resolves");
 
+        // Every Phi in this block must be resolved "simultaneously,"
+        // using the environment exactly as it was upon *entering* the
+        // block — never a value another Phi in this same block just
+        // wrote. A Phi's incoming operand can legitimately be another
+        // Phi defined in this very block (e.g. a value an inner loop
+        // passes through unchanged, merged again at the outer loop's
+        // header) — that operand's own resolved-this-transition value,
+        // not whatever the plain sequential-execution order would
+        // already have overwritten it with. Getting this wrong is a
+        // real bug this interpreter shipped with: sequentially folding
+        // every instruction (Phis included) into `env` in textual order
+        // let a later Phi observe an earlier same-block Phi's freshly
+        // written value instead of its correct pre-transition one —
+        // caught by ticket 006's nested-loop differential property
+        // test, which found the compiled (codegen) result and the
+        // interpreted result disagreeing; codegen was right (its phi
+        // elimination already stages every predecessor's outgoing
+        // values through scratch memory before writing any destination
+        // — see `docs/design/decisions/ADR-006-differential-testing-and-benchmarks.md`).
+        let mut phi_results = Vec::new();
         for inst in &block.instructions {
+            if let InstKind::Phi(incoming) = &inst.kind {
+                let from = came_from.expect("a Phi never appears in the entry block");
+                let (_, v) = incoming
+                    .iter()
+                    .find(|(b, _)| *b == from)
+                    .expect("validated module: phi covers every predecessor");
+                phi_results.push((inst.id, env[v]));
+            }
+        }
+        for (id, value) in phi_results {
+            env.insert(id, value);
+        }
+
+        for inst in &block.instructions {
+            if matches!(inst.kind, InstKind::Phi(_)) {
+                continue; // already resolved above, using pre-block values
+            }
             let value = match &inst.kind {
                 InstKind::ConstI64(v) => RtValue::I64(*v),
                 InstKind::ConstBool(v) => RtValue::Bool(*v),
                 InstKind::Bin(op, lhs, rhs) => eval_bin(*op, env[lhs], env[rhs])?,
                 InstKind::Un(op, operand) => eval_un(*op, env[operand]),
-                InstKind::Phi(incoming) => {
-                    let from = came_from.expect("a Phi never appears in the entry block");
-                    let (_, v) = incoming
-                        .iter()
-                        .find(|(b, _)| *b == from)
-                        .expect("validated module: phi covers every predecessor");
-                    env[v]
-                }
+                InstKind::Phi(_) => unreachable!("skipped above"),
                 InstKind::Call { func: callee, args } => {
                     let callee_fn = module
                         .function(callee)
@@ -366,6 +396,99 @@ mod tests {
             run(&module, "sum_to", &[RtValue::I64(0)]).unwrap(),
             Some(RtValue::I64(0))
         );
+    }
+
+    #[test]
+    fn a_phi_referencing_another_phi_in_the_same_block_resolves_using_pre_transition_values() {
+        // A loop header where one phi's incoming value, for the
+        // back-edge predecessor, is *another phi defined in this same
+        // block* — a legitimate pattern (e.g. a value one nested loop
+        // passes through unchanged, merged again at an outer header;
+        // see ticket 003's `ssa_builder`). Found by ticket 006's
+        // generative differential test as a real bug: resolving every
+        // instruction (Phis included) strictly in textual order let a
+        // later Phi observe an earlier same-block Phi's *freshly
+        // written* value for this transition instead of its correct
+        // value from *before* the transition — exactly the hazard
+        // `parallel_move` was already built to avoid on the codegen
+        // side (`docs/design/decisions/ADR-006-differential-testing-and-benchmarks.md`).
+        //
+        //   fn f() -> i64 {
+        //     let c = 0; let i = 0;
+        //     while i < 2 {
+        //       a = c;       // reads c's value entering *this* iteration
+        //       c = c + 1;
+        //       i = i + 1;
+        //     }
+        //     return a;
+        //   }
+        //
+        // Trace: iter1 (c=0): a becomes 0, c becomes 1. iter2 (c=1): a
+        // becomes 1, c becomes 2, loop ends. Correct answer: 1.
+        let mut b = FnBuilder::new("f", vec![], Some(Type::I64));
+        let entry = b.new_block();
+        let header = b.new_block();
+        let body = b.new_block();
+        let exit = b.new_block();
+        b.set_entry(entry);
+
+        let zero = b.push(entry, Type::I64, InstKind::ConstI64(0));
+        b.terminate(entry, Terminator::Jump(header));
+
+        let c_phi_id = ValueId(10);
+        let a_phi_id = ValueId(11);
+        let i_phi_id = ValueId(12);
+        b.push_with_id(header, c_phi_id, Type::I64, InstKind::Phi(vec![]));
+        b.push_with_id(header, a_phi_id, Type::I64, InstKind::Phi(vec![]));
+        b.push_with_id(header, i_phi_id, Type::I64, InstKind::Phi(vec![]));
+        let two = b.push(header, Type::I64, InstKind::ConstI64(2));
+        let cond = b.push(
+            header,
+            Type::Bool,
+            InstKind::Bin(BinOp::CmpLt, i_phi_id, two),
+        );
+        b.terminate(
+            header,
+            Terminator::Branch {
+                cond,
+                then_block: body,
+                else_block: exit,
+            },
+        );
+
+        // "a = c;" — a bare copy, so no instruction is emitted; body's
+        // binding for `a` is simply `c_phi_id` itself, exactly as
+        // ticket 003's parser would construct it.
+        let one = b.push(body, Type::I64, InstKind::ConstI64(1));
+        let c_next = b.push(body, Type::I64, InstKind::Bin(BinOp::Add, c_phi_id, one));
+        let i_next = b.push(body, Type::I64, InstKind::Bin(BinOp::Add, i_phi_id, one));
+        b.terminate(body, Terminator::Jump(header));
+
+        b.terminate(exit, Terminator::Return(Some(a_phi_id)));
+
+        let mut func = b.finish();
+        for block in &mut func.blocks {
+            for inst in &mut block.instructions {
+                if inst.id == c_phi_id {
+                    inst.kind = InstKind::Phi(vec![(entry, zero), (body, c_next)]);
+                }
+                if inst.id == a_phi_id {
+                    // The back-edge operand is c_phi_id itself — another
+                    // phi in this same block — which is the crux of the
+                    // regression this test exists to guard against.
+                    inst.kind = InstKind::Phi(vec![(entry, zero), (body, c_phi_id)]);
+                }
+                if inst.id == i_phi_id {
+                    inst.kind = InstKind::Phi(vec![(entry, zero), (body, i_next)]);
+                }
+            }
+        }
+
+        crate::validate::validate_function(&func).expect("hand-built loop must validate");
+        let module = Module {
+            functions: vec![func],
+        };
+        assert_eq!(run(&module, "f", &[]).unwrap(), Some(RtValue::I64(1)));
     }
 
     #[test]
