@@ -1,0 +1,19 @@
+[package]
+name = "chakobsac"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "chakobsac"
+path = "src/main.rs"
+
+[dependencies]
+parser = { path = "../parser" }
+ir = { path = "../ir" }
+codegen = { path = "../codegen" }
+isa = { git = "https://github.com/n-3-0-l-d-3-v/mentat.git" }
+vm = { git = "https://github.com/n-3-0-l-d-3-v/mentat.git" }
+clap.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
