@@ -94,6 +94,19 @@ tests cover liveness/regalloc directly, and a 200-case differential
 property test confirms compiled-and-VM-executed results always match
 the reference interpreter.
 
+**Ticket 005 (`chakobsac` CLI) is done.** `build`/`run`/`dump-ir`, a
+real command-line compiler driver mirroring mentat's own `imc`. A
+required, zero-argument `fn main() -> i64` is the program's entry point
+(see [ADR-005](docs/design/decisions/ADR-005-cli-toolchain.md) for why);
+`build`'s output is a plain, undecorated `isa::Program` — no
+CHAKOBSA-specific wrapper — so it's directly consumable by mentat's own
+`imc disasm`/`imc run` with zero glue code, verified directly rather
+than just claimed. `dump-ir` gets its own readable one-line-per-
+instruction renderer, replacing the ad hoc `{:#?}` dumps every earlier
+ticket had been using. 7 integration tests run against the actual built
+binary, covering all three subcommands, recursion, a missing-`main`
+error, a parse error, and round-tripping `build` -> `run`.
+
 See [tickets/](tickets/) for the live phase-by-phase ticket board and
 [docs/design/](docs/design/) for constraints, invariants and architecture
 decision records.
@@ -120,6 +133,14 @@ Alternative intermediate representation design, and a compiler front-end that mu
 - [landsraad](https://github.com/n-3-0-l-d-3-v/landsraad) — THE COLONY (QUEUED)
 - [ghola](https://github.com/n-3-0-l-d-3-v/ghola) — THE HISTORY (QUEUED)
 - [shai-hulud](https://github.com/n-3-0-l-d-3-v/shai-hulud) — THE ARTIFACT (STRETCH)
+
+## Usage
+
+```bash
+cargo run -p chakobsac -- run examples/fact.ck        # compile + execute, prints main's return value
+cargo run -p chakobsac -- dump-ir examples/fact.ck     # readable typed SSA IR
+cargo run -p chakobsac -- build examples/fact.ck -o fact.ckp  # -> a plain isa::Program, runnable by mentat's own imc too
+```
 
 ## Development
 
