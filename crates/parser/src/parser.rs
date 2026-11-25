@@ -436,10 +436,16 @@ impl Parser {
             });
         }
 
+        // A short-circuit `and`/`or` in the condition ends `header` with its
+        // own branch and leaves the condition's value in a join block, so the
+        // loop branch must close the block the condition *ended* in, not
+        // `header` (doing that overwrote the short-circuit branch and left
+        // the join block unterminated).
+        let cond_tail = ctx.current_block;
         let body = ctx.builder.new_block();
         let exit = ctx.builder.new_block();
         ctx.builder.terminate(
-            header,
+            cond_tail,
             Terminator::Branch {
                 cond,
                 then_block: body,

@@ -229,3 +229,60 @@ fn not_and_boolean_literals() {
     assert_eq!(exec(src, "f", &[1]), 0);
     assert_eq!(exec(src, "f", &[0]), 1);
 }
+
+/// Regression: a short-circuit `and`/`or` in a `while` condition used to
+/// leave the condition's join block unterminated ("block bN has no
+/// terminator") because the loop branch closed the header block instead of
+/// the block the condition ended in. Found by ARRAKIS's examples/primes.ck.
+#[test]
+fn short_circuit_conditions_in_while_loops() {
+    let src = r#"
+        fn and_loop(n: i64) -> i64 {
+            let d = 0;
+            while d < n and d < 5 {
+                d = d + 1;
+            }
+            return d;
+        }
+        fn or_loop(n: i64) -> i64 {
+            let d = 0;
+            while d < n or d < 2 {
+                d = d + 1;
+            }
+            return d;
+        }
+        fn chained(n: i64) -> i64 {
+            let d = 0;
+            let steps = 0;
+            while d < n and not (d == 7) or d < 3 {
+                d = d + 1;
+                steps = steps + 1;
+            }
+            return steps;
+        }
+        fn smallest_factor(n: i64) -> i64 {
+            let d = 2;
+            let found = false;
+            while not found and d * d <= n {
+                if n % d == 0 {
+                    found = true;
+                } else {
+                    d = d + 1;
+                }
+            }
+            if found {
+                return d;
+            } else {
+                return n;
+            }
+        }
+    "#;
+    assert_eq!(exec(src, "and_loop", &[3]), 3);
+    assert_eq!(exec(src, "and_loop", &[9]), 5);
+    assert_eq!(exec(src, "or_loop", &[0]), 2);
+    assert_eq!(exec(src, "or_loop", &[4]), 4);
+    assert_eq!(exec(src, "chained", &[10]), 7);
+    assert_eq!(exec(src, "chained", &[1]), 3);
+    assert_eq!(exec(src, "smallest_factor", &[91]), 7);
+    assert_eq!(exec(src, "smallest_factor", &[97]), 97);
+}
