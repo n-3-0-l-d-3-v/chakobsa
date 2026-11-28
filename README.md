@@ -156,14 +156,18 @@ Alternative intermediate representation design, and a compiler front-end that mu
 
 ## Sibling repositories
 
-- [mentat](https://github.com/n-3-0-l-d-3-v/mentat) — THE MACHINE (COMPLETE)
-- [muaddib](https://github.com/n-3-0-l-d-3-v/muaddib) — THE KERNEL (QUEUED)
-- [sietch](https://github.com/n-3-0-l-d-3-v/sietch) — THE VAULT (COMPLETE)
-- [choam](https://github.com/n-3-0-l-d-3-v/choam) — THE DATABASE (QUEUED)
-- [distrans](https://github.com/n-3-0-l-d-3-v/distrans) — THE WIRE (QUEUED)
-- [landsraad](https://github.com/n-3-0-l-d-3-v/landsraad) — THE COLONY (QUEUED)
-- [ghola](https://github.com/n-3-0-l-d-3-v/ghola) — THE HISTORY (QUEUED)
-- [shai-hulud](https://github.com/n-3-0-l-d-3-v/shai-hulud) — THE ARTIFACT (STRETCH)
+All nine subsystems are complete and are mirrored, commit for commit, into
+[ARRAKIS](https://github.com/n-3-0-l-d-3-v/arrakis), where one operation runs
+through all of them.
+
+- [mentat](https://github.com/n-3-0-l-d-3-v/mentat) — THE MACHINE: no instruction pointer: dataflow execution
+- [sietch](https://github.com/n-3-0-l-d-3-v/sietch) — THE VAULT: storage that never overwrites a byte
+- [muaddib](https://github.com/n-3-0-l-d-3-v/muaddib) — THE KERNEL: capabilities instead of paths, logical clocks instead of a wall clock
+- [distrans](https://github.com/n-3-0-l-d-3-v/distrans) — THE WIRE: reliable transport over a channel that lies
+- [choam](https://github.com/n-3-0-l-d-3-v/choam) — THE DATABASE: SQL on append-only storage
+- [landsraad](https://github.com/n-3-0-l-d-3-v/landsraad) — THE COLONY: consensus with no single machine and no global clock
+- [ghola](https://github.com/n-3-0-l-d-3-v/ghola) — THE HISTORY: content-addressed version history
+- [shai-hulud](https://github.com/n-3-0-l-d-3-v/shai-hulud) — THE ARTIFACT: a program carried inside a PDF or SVG
 
 ## Usage
 
