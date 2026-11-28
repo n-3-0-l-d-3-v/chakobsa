@@ -286,3 +286,68 @@ fn short_circuit_conditions_in_while_loops() {
     assert_eq!(exec(src, "smallest_factor", &[91]), 7);
     assert_eq!(exec(src, "smallest_factor", &[97]), 97);
 }
+
+/// Constants outside mentat's 32-bit immediate range (ADR-008): each must
+/// come back bit for bit, including both ends of `i64` and the values just
+/// past each `i32` boundary, where a sign-extension mistake would show.
+#[test]
+fn constants_wider_than_32_bits_are_materialised_exactly() {
+    let cases: [i64; 12] = [
+        i32::MAX as i64 + 1,
+        i32::MIN as i64 - 1,
+        u32::MAX as i64,
+        1 << 32,
+        (1 << 32) + 1,
+        5_000_000_000,
+        0x7FFF_FFFF_8000_0000,
+        123_456_789_012_345,
+        i64::MAX,
+        i64::MAX - 0x8000_0000,
+        -5_000_000_000,
+        i64::MIN + 1,
+    ];
+    for n in cases {
+        let src = if n < 0 {
+            format!("fn f() -> i64 {{ return -{}; }}", n.unsigned_abs())
+        } else {
+            format!("fn f() -> i64 {{ return {n}; }}")
+        };
+        assert_eq!(exec(&src, "f", &[]), n, "{src}");
+    }
+    assert_eq!(
+        exec(
+            "fn f() -> i64 { return -9223372036854775807 - 1; }",
+            "f",
+            &[]
+        ),
+        i64::MIN
+    );
+}
+
+/// Thirty large constants live at once: more than the 27 allocatable
+/// registers, so some are spilled and materialised in SCRATCH_1, while
+/// the split itself uses SCRATCH_2. The sum must match Rust's wrapping sum.
+#[test]
+fn spilled_wide_constants_survive_register_pressure() {
+    let values: Vec<i64> = (0..30i64)
+        .map(|i| 4_000_000_000 + i * 1_000_000_007 * (i + 1))
+        .collect();
+    let lets: String = values
+        .iter()
+        .enumerate()
+        .map(|(i, v)| format!("let v{i} = {v}; "))
+        .collect();
+    let sum: Vec<String> = (0..values.len()).map(|i| format!("v{i}")).collect();
+    let src = format!("fn f() -> i64 {{ {lets}return {}; }}", sum.join(" + "));
+    let want = values.iter().fold(0i64, |a, v| a.wrapping_add(*v));
+    assert_eq!(exec(&src, "f", &[]), want);
+}
+
+/// A wide constant inside a loop body and as a loop bound.
+#[test]
+fn wide_constants_in_a_loop() {
+    let src = "fn f() -> i64 { let x = 0; let i = 0; \
+               while i < 3 { x = x + 6000000000; i = i + 1; } \
+               if x > 17999999999 { return x; } return 0; }";
+    assert_eq!(exec(src, "f", &[]), 18_000_000_000);
+}

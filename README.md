@@ -18,6 +18,11 @@ repo commit-for-commit.
 language and full pipeline (lexer -> parser building typed SSA directly
 -> codegen -> mentat bytecode).
 
+Since Phase 3 closed: `and`/`or` in `while` conditions compile
+([ADR-007](docs/design/decisions/ADR-007-short-circuit-while-conditions.md)),
+and every `i64` constant compiles, not only those that fit mentat's 32-bit
+immediate ([ADR-008](docs/design/decisions/ADR-008-64-bit-constants.md)).
+
 **Ticket 001 (lexer) is done.** `crates/lexer`: a full token set for
 the v1 surface language, greedy two-character-operator matching,
 keyword-prefixed identifiers (`iffy`, `letter`) correctly lexing as

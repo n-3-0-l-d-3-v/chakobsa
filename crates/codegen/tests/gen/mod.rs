@@ -20,8 +20,15 @@ const VAR_NAMES: [&str; 3] = ["a", "b", "c"];
 
 fn arb_expr() -> impl Strategy<Value = String> {
     let arb_atom = prop_oneof![
-        (0i64..100).prop_map(|n| n.to_string()),
-        prop::sample::select(&VAR_NAMES[..]).prop_map(|s| s.to_string()),
+        8 => (0i64..100).prop_map(|n| n.to_string()),
+        // wider than mentat's 32-bit immediate (ADR-008); i64::MIN has no
+        // literal form, so stop one short of it
+        1 => (i64::MIN + 1..=i64::MAX).prop_map(|n| if n < 0 {
+            format!("(-{})", n.unsigned_abs())
+        } else {
+            n.to_string()
+        }),
+        8 => prop::sample::select(&VAR_NAMES[..]).prop_map(|s| s.to_string()),
     ];
     arb_atom.prop_recursive(3, 20, 4, |inner| {
         prop_oneof![

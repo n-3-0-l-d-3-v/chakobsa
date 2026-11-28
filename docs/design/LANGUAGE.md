@@ -48,6 +48,10 @@ language. Extending the surface syntax later never requires touching the
 - Statements: `let` bindings (type inferred from the initializer),
   assignment to an existing binding, `if`/`else`, `while`, `return`,
   bare expression statements.
+- Integer literals are decimal, `0` to `i64::MAX`; a negative value is
+  unary `-` applied to one (so `i64::MIN` is `-9223372036854775807 - 1`).
+  Every `i64` value compiles (ADR-008). Arithmetic wraps on overflow, in
+  the compiled code and in the reference interpreter alike.
 - Expressions: integer and boolean literals, variable references,
   function calls, unary `-`/`not`, binary arithmetic (`+ - * / %`),
   comparison (`== != < <= > >=`), and short-circuit `and`/`or`.

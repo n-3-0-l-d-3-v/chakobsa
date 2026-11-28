@@ -252,13 +252,8 @@ impl<'a> Lowerer<'a> {
                 match &inst.kind {
                     InstKind::Phi(_) => {} // no code; resolved at each predecessor's edge
                     InstKind::ConstI64(n) => {
-                        let imm =
-                            i32::try_from(*n).map_err(|_| CodegenError::ConstantTooLarge {
-                                func: self.func.name.clone(),
-                                value: *n,
-                            })?;
                         let dst = self.write_target(inst.id, SCRATCH_1);
-                        cur.push(Instruction::new(Opcode::LoadI, dst, 0, 0, imm));
+                        load_i64(&mut cur, dst, *n);
                         self.finish_write(&mut cur, inst.id, dst)?;
                     }
                     InstKind::ConstBool(b) => {
@@ -481,4 +476,56 @@ pub fn lower_function(
         region_end,
     }
     .lower()
+}
+
+/// Puts the 64-bit constant `n` into `dst`. mentat's immediate field is a
+/// sign-extended `i32`, so a constant in that range is one `LoadI`. Any
+/// other is split as `n = (hi << 32) + lo`, where `lo` is the low 32 bits
+/// read as a *signed* `i32` and `hi = (n - lo) >> 32`, which then also fits
+/// an `i32`. The VM's `Shl` and `Add` wrap, so the identity holds for every
+/// `i64`, including `i64::MAX` and `i64::MIN` (ADR-008). `SCRATCH_2` holds
+/// the shift amount and `lo`: no operand of a constant is ever live in it,
+/// and `dst` is never `SCRATCH_2` (it is an allocated register or
+/// `SCRATCH_1`).
+pub(crate) fn split_i64(n: i64) -> (i32, i32) {
+    let lo = n as i32;
+    let hi = (n.wrapping_sub(lo as i64) >> 32) as i32;
+    (hi, lo)
+}
+
+fn load_i64(blk: &mut PendingBlock, dst: u8, n: i64) {
+    debug_assert_ne!(dst, SCRATCH_2);
+    if let Ok(imm) = i32::try_from(n) {
+        blk.push(Instruction::new(Opcode::LoadI, dst, 0, 0, imm));
+        return;
+    }
+    let (hi, lo) = split_i64(n);
+    blk.push(Instruction::new(Opcode::LoadI, dst, 0, 0, hi));
+    blk.push(Instruction::new(Opcode::LoadI, SCRATCH_2, 0, 0, 32));
+    blk.push(Instruction::new(Opcode::Shl, dst, dst, SCRATCH_2, 0));
+    blk.push(Instruction::new(Opcode::LoadI, SCRATCH_2, 0, 0, lo));
+    blk.push(Instruction::new(Opcode::Add, dst, dst, SCRATCH_2, 0));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_i64;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// The identity the wide-constant sequence relies on, for every i64.
+        #[test]
+        fn split_i64_reassembles_every_value(n in any::<i64>()) {
+            let (hi, lo) = split_i64(n);
+            prop_assert_eq!((hi as i64).wrapping_shl(32).wrapping_add(lo as i64), n);
+        }
+    }
+
+    #[test]
+    fn split_i64_edges() {
+        for n in [i64::MIN, i64::MAX, 0, -1, 1 << 32, u32::MAX as i64] {
+            let (hi, lo) = split_i64(n);
+            assert_eq!((hi as i64).wrapping_shl(32).wrapping_add(lo as i64), n);
+        }
+    }
 }

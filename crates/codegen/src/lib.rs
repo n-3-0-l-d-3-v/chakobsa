@@ -42,8 +42,6 @@ pub enum CodegenError {
     RegAlloc(#[from] RegAllocError),
     #[error("function '{func}' needs more spill/temporary space than its {FUNCTION_REGION_BYTES}-byte budget")]
     OutOfSpillSpace { func: String },
-    #[error("function '{func}' has an i64 constant ({value}) that doesn't fit in mentat's 32-bit immediate field — arbitrary 64-bit constant materialization isn't implemented")]
-    ConstantTooLarge { func: String, value: i64 },
     #[error("call to '{callee}', which no function in this module defines (should have been caught by ir::validate_module already)")]
     UnknownCallee { callee: String },
     #[error("{count} functions * {FUNCTION_REGION_BYTES}-byte regions would overlap the call stack at {STACK_BASE:#x}")]

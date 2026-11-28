@@ -116,6 +116,8 @@ mentat's real VM (not just validated statically):
 - **Arbitrary 64-bit constants aren't materialized.** mentat's `imm`
   field is `i32`; an `i64` constant outside that range is a typed
   `CodegenError::ConstantTooLarge`, not silently truncated or wrong.
+  *Superseded by ADR-008: wide constants are now built from two
+  immediates with `Shl` and `Add`.*
 - **`parallel_move` stages every value through memory**, even when a
   direct register-to-register `Mov` would do — simple and always
   correct, not fast. Performance tuning is out of scope until ticket
